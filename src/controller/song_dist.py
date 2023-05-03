@@ -47,20 +47,38 @@ def generate_anouncement_packet(part: int,part_len: list, repeat: int) -> bytes:
     print(len(packet),packet)
     return struct.pack("!B",len(packet)) + packet
     
-
+def generate_other_control_packet(p_type: int, repeat:int) -> bytes:
+    packet = add_header(p_type,0,repeat)
+    if len(packet) % 2:
+        packet += struct.pack("!b",0)
+    packet = checksum_calc(packet) + packet
+    return struct.pack("!B",len(packet)) + packet
 
 
 if __name__ == "__main__":
-    # ser.write(generate_anouncement_packet(4,[1,1,1,1],0))
-    ser.write(generate_song_packet(0,[[0,300,255,255,255,60],[1,250,128,128,128,45]],1))
+    ser.write(generate_anouncement_packet(2,[3,3],0))
+    time.sleep(.1)
+    ser.write(generate_anouncement_packet(2,[3,3],1))
+    time.sleep(.1)
+    ser.write(generate_anouncement_packet(2,[3,3],1))
+    time.sleep(.1)
+    for i in range(2):
+        ser.write(generate_song_packet(i,[[0,1000,255,255,255,60],[1,1000,255,0,0,72],[2,1000,255,255,255,60]],0))
+        time.sleep(.1)
+
+    time.sleep(1)
+    ser.write(generate_other_control_packet(2,0))
+    time.sleep(3)
+    ser.write(generate_other_control_packet(3,0))
+    ser.write(generate_other_control_packet(4,0))
     # print(generate_song_packet(0,[[255,255,255,60,0,300]],0))
     # print(generate_anouncement_packet(4,[1,1,1,1],0))
     # ser.write(generate_anncoucement_bytes(1,[1]))
     # print(generate_anncoucement_bytes(1,[1]))
-    time.sleep(1)
-    while True:
-        print(ser.read_all())
-        time.sleep(1)
+    # time.sleep(1)
+    # while True:
+    #     print(ser.readline())
+        # time.sleep(1)
     # print(generate_anncoucement_bytes(1,[1,1,1,1]))
     # pirates = MidiFile("moonlight.mid",clip=True)
     # print(pirates.length)
