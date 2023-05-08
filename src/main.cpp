@@ -8,6 +8,8 @@
 #define LED_PIN 5
 #define LED_COUNT 20
 
+#define COM
+
 typedef struct
 {
   unsigned int p_type : 3;
@@ -44,44 +46,53 @@ void get_song_packets(song_note *packets, uint8_t *data, uint8_t num_packets);
 void play_note_color(uint16_t index, uint8_t on);
 
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-uint8_t *message_buffer;
-size_t message_len;
-song_note *notes = NULL;
-song_meta_data meta_data = {0, 0xFFFF};
+// uint8_t *message_buffer;
+// size_t message_len;
+static song_note **notes = NULL;
+static song_meta_data meta_data = {0, 0xFFFF};
 
-uint8_t play_song = 0;
-uint16_t song_index = 0;
-unsigned long start_time = 0;
-unsigned long target_time = 0;
-unsigned long new_target_time = 0;
-unsigned long extra_time = 0;
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+static  uint8_t play_song = 0;
+static  uint16_t song_index = 0;
+static  unsigned long start_time = 0;
+static  unsigned long target_time = 0;
+static  unsigned long cur_time = 0;
+static  unsigned long new_target_time = 0;
+static  unsigned long extra_time = 0;
+static Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup()
 {
-  message_buffer = (uint8_t *)malloc(250 * sizeof(uint8_t));
+  // message_buffer = (uint8_t *)malloc(250 * sizeof(uint8_t));
   // put your setup code here, to run once:
+  #ifdef COM
   Serial.begin(115200);
   // delay(5000);
 
   Serial.println("ESPNow Example");
-  WiFi.mode(WIFI_STA);
+  #endif
+  // WiFi.mode(WIFI_STA);
 
   // Output my MAC address - useful for later
+  #ifdef COM
   Serial.print("My MAC Address is: ");
   Serial.println(WiFi.macAddress());
+  #endif
   // shut down wifi
-  WiFi.disconnect();
+  // WiFi.disconnect();
 
   if (esp_now_init() == ESP_OK)
   {
+    #ifdef COM
     Serial.println("ESPNow Init Success");
+    #endif
     esp_now_register_recv_cb(receiveCallback);
     esp_now_register_send_cb(sentCallback);
   }
   else
   {
+    #ifdef COM
     Serial.println("ESPNow Init Failed");
+    #endif
     delay(3000);
     ESP.restart();
   }
@@ -95,6 +106,7 @@ void setup()
   song_index = 0;
   start_time = 0;
   target_time = 0;
+  cur_time = 0;
   extra_time = 0;
 }
 
@@ -104,6 +116,7 @@ void loop()
   // Serial.println(millis());
   // broadcast(buffer,10);
   // delay(1000);
+  #ifdef COM
   if (Serial.available() > 0) // used for receiving input from the host computer for sending information
   {
     pinMode(TONE_PIN, OUTPUT);
@@ -141,9 +154,10 @@ void loop()
     // Serial.end();
     // Serial.begin(115200);
   }
+  #endif
   if (play_song)
   {
-    static unsigned long cur_time = millis();
+    cur_time = millis();
     if (cur_time >= target_time)
     {
       song_index++;
@@ -153,8 +167,10 @@ void loop()
         play_note_color(0, 0);
         return;
       }
-      new_target_time = cur_time + notes[song_index].duration;
-      Serial.printf("index: %d, new target time: %d, Target_time: %d, current time: %d, duration: %d\n", song_index, new_target_time, target_time, cur_time, notes[song_index].duration);
+      new_target_time = target_time + notes[song_index]->duration;
+      #ifdef COM
+      Serial.printf("index: %d, new target time: %d, Target_time: %d, current time: %d, duration: %d\n", song_index, new_target_time, target_time, cur_time, notes[song_index]->duration);
+      #endif
       target_time = new_target_time;
       play_note_color(song_index, 1);
     }
@@ -173,10 +189,10 @@ void play_note_color(uint16_t index, uint8_t on)
   // Serial.printf("Drawing note %d\n", index);
   if (on)
   {
-    tone(TONE_PIN, note_pitches[notes[song_index].note - PITCH_OFFSET]);
+    // tone(TONE_PIN, note_pitches[notes[song_index].note - PITCH_OFFSET]);
     for (int i = 0; i < LED_COUNT; i++)
     {
-      strip.setPixelColor(i, notes[song_index].red, notes[song_index].green, notes[song_index].blue);
+      strip.setPixelColor(i, notes[song_index]->red, notes[song_index]->green, notes[song_index]->blue);
     }
   }
   else
@@ -188,19 +204,20 @@ void play_note_color(uint16_t index, uint8_t on)
   strip.show();
 }
 
-void get_song_packets(song_note *packets, uint8_t *data, uint8_t num_packets)
+void get_song_packets(song_note **packets, uint8_t *data, uint8_t num_packets)
 {
   uint8_t index = 0;
   for (int i = 0; i < num_packets; i++)
   {
     uint16_t seq = ntohs(*((uint16_t *)((data + index))));
-    packets[seq].sequence = seq;
-    packets[seq].duration = ntohs(*((uint16_t *)((data + index + 2))));
-    packets[seq].part = data[index + 4];
-    packets[seq].red = data[index + 5];
-    packets[seq].green = data[index + 6];
-    packets[seq].blue = data[index + 7];
-    packets[seq].note = data[index + 8];
+    packets[seq] = (song_note*)malloc(sizeof(song_note));
+    packets[seq]->sequence = seq;
+    packets[seq]->duration = ntohs(*((uint16_t *)((data + index + 2))));
+    packets[seq]->part = data[index + 4];
+    packets[seq]->red = data[index + 5];
+    packets[seq]->green = data[index + 6];
+    packets[seq]->blue = data[index + 7];
+    packets[seq]->note = data[index + 8];
     index += 9;
   }
 }
@@ -261,7 +278,9 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
   // Serial.printf("%d %d  %d \t%d ", ntohs(_16bytes[0]), ntohs(_16bytes[1]), ntohs(_16bytes[2]), read);
   if (!check_checksum(_16bytes, dataLen / 2 - 1))
   {
+    #ifdef COM
     Serial.println("Checksum failed");
+    #endif
     return;
   }
   // checksum was good now grab the header off
@@ -282,8 +301,11 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
     uint8_t number_of_parts = (uint8_t)data[3];
     meta_data.part = esp_random() % number_of_parts;
     meta_data.num_notes = ntohs(*((uint16_t *)(data + 4 + meta_data.part * 2)));
-    notes = (song_note *)malloc(meta_data.num_notes * sizeof(song_note));
+    notes = (song_note **)malloc(meta_data.num_notes * sizeof(song_note*));
+    // notes = ()
+    #ifdef COM
     Serial.printf("Processed announcment: %d, choose %d with %d notes\n", number_of_parts, meta_data.part, meta_data.num_notes);
+    #endif
     song_index = 0;
     play_song = 0;
     extra_time = 0;
@@ -296,43 +318,63 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
     {
       break;
     }
+    #ifdef COM
     Serial.printf("getting song notes: %d\n", p_head.num_packets);
+    #endif
     get_song_packets(notes, (uint8_t *)(data + 3), p_head.num_packets);
+    #ifdef COM
     for (int i = 0; i < meta_data.num_notes; i++)
     {
-      Serial.printf("note: %d, %d %d %d %d %d %d %d\n", i, notes[i].sequence, notes[i].duration, notes[i].part, notes[i].red, notes[i].green, notes[i].blue, notes[i].note);
+      Serial.printf("note: %d, %d %d %d %d %d %d %d\n", i, notes[i]->sequence, notes[i]->duration, notes[i]->part, notes[i]->red, notes[i]->green, notes[i]->blue, notes[i]->note);
     }
+    #endif
     break;
   case 2: // Start playing the song
+  #ifdef COM
     Serial.printf("Play the song\n");
+    #endif
     if (meta_data.num_notes == 0xFFFF || song_index >= meta_data.num_notes) // haven't loaded a song yet so don't start
     {
+      #ifdef COM
       Serial.printf("No song loaded so can't play or past the song info\n");
+      #endif
       return;
     }
     play_song = 1;
     if (extra_time)
     {
+      #ifdef COM
       Serial.printf("Extra time for note %d", extra_time);
-      target_time = millis() + extra_time;
+      #endif
+      target_time = cur_time + extra_time;
       extra_time = 0;
     }
     else
     {
-      target_time = millis() + notes[song_index].duration;
-      Serial.printf("in start function, index: %d, Target_time: %d, current time: %d, duration: %d\n", song_index, target_time, millis(), notes[song_index].duration);
+      // cur_time = millis();
+      target_time = cur_time + notes[song_index]->duration;
+      #ifdef COM
+      Serial.printf("in start function, index: %d, Target_time: %d, current time: %d, duration: %d\n", song_index, target_time, cur_time, notes[song_index]->duration);
+      #endif
     }
     play_note_color(song_index, 1);
     break;
   case 3: // stop playing the song
+    #ifdef COM
     Serial.printf("Stop the song\n");
+    #endif
     play_song = 0;
-    extra_time = target_time - millis();
+    extra_time = target_time - cur_time;
     play_note_color(0, 0); // turn off sound and color
     break;
   case 4: // reset the song stuff
+    #ifdef COM
     Serial.printf("Reset the song man\n");
+    #endif
     play_note_color(0, 0); // turn off sound and color
+    for (int i =0; i < meta_data.num_notes; i++) {
+      free(notes[i]);
+    }
     free(notes);
     meta_data.part = 0;
     meta_data.num_notes = 0xFFFF;
@@ -352,10 +394,12 @@ void sentCallback(const uint8_t *macAddr, esp_now_send_status_t status)
 {
   char macStr[18];
   formatMacAddress(macAddr, macStr, 18);
+  #ifdef COM
   Serial.print("Last Packet Sent to: ");
   Serial.println(macStr);
   Serial.print("Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  #endif
 }
 
 void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength)

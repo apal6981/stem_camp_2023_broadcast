@@ -4,7 +4,7 @@ import struct
 # import mido
 import time
 
-ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+ser = serial.Serial('COM11', 115200, timeout=1)
 
 # if ser is None:
 #     exit(1)
@@ -56,19 +56,21 @@ def generate_other_control_packet(p_type: int, repeat:int) -> bytes:
 
 
 if __name__ == "__main__":
-    ser.write(generate_anouncement_packet(2,[3,3],0))
+    ser.write(generate_anouncement_packet(2,[6,6],0))
     time.sleep(.1)
-    ser.write(generate_anouncement_packet(2,[3,3],1))
+    ser.write(generate_anouncement_packet(2,[6,6],1))
     time.sleep(.1)
-    ser.write(generate_anouncement_packet(2,[3,3],1))
+    ser.write(generate_anouncement_packet(2,[6,6],1))
     time.sleep(.1)
     for i in range(2):
-        ser.write(generate_song_packet(i,[[0,1000,255,255,255,60],[1,1000,255,0,0,72],[2,1000,255,255,255,60]],0))
+        ser.write(generate_song_packet(i,[[0,1000,255,255,255,60],[1,1000,255,0,0,72],
+                                          [2,1000,255,255,255,60],[3,1000,255,255,255,60-12],
+                                          [4,1000,255,0,0,60],[5,1000,255,255,255,60+3]],0))
         time.sleep(.1)
 
     time.sleep(1)
     ser.write(generate_other_control_packet(2,0))
-    time.sleep(3)
+    time.sleep(7)
     ser.write(generate_other_control_packet(3,0))
     ser.write(generate_other_control_packet(4,0))
     # print(generate_song_packet(0,[[255,255,255,60,0,300]],0))
