@@ -1,7 +1,7 @@
 import serial
 import struct
-# from mido import MidiFile
-# import mido
+from mido import MidiFile
+import mido
 import time
 
 ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
@@ -99,20 +99,20 @@ if __name__ == "__main__":
     #                                       [4,1000,255,0,0,60],[5,1000,255,255,255,60+3]],0))
     #     time.sleep(.1)
 
-    ser.write(generate_anouncement_packet(1,[28],0))
-    time.sleep(.1)
-    ser.write(generate_anouncement_packet(1,[28],1))
-    time.sleep(.1)
-    ser.write(generate_song_packet(0,imperial_treble[:8],0))
-    time.sleep(.1)
-    ser.write(generate_song_packet(0,imperial_treble[8:16],0))
-    time.sleep(.1)
-    ser.write(generate_song_packet(0,imperial_treble[16:],0))
-    time.sleep(1)
-    ser.write(generate_other_control_packet(2,0))
-    time.sleep(10)
-    ser.write(generate_other_control_packet(3,0))
-    ser.write(generate_other_control_packet(4,0))
+    # ser.write(generate_anouncement_packet(1,[28],0))
+    # time.sleep(.1)
+    # ser.write(generate_anouncement_packet(1,[28],1))
+    # time.sleep(.1)
+    # ser.write(generate_song_packet(0,imperial_treble[:8],0))
+    # time.sleep(.1)
+    # ser.write(generate_song_packet(0,imperial_treble[8:16],0))
+    # time.sleep(.1)
+    # ser.write(generate_song_packet(0,imperial_treble[16:],0))
+    # time.sleep(1)
+    # ser.write(generate_other_control_packet(2,0))
+    # time.sleep(10)
+    # ser.write(generate_other_control_packet(3,0))
+    # ser.write(generate_other_control_packet(4,0))
 
     # print(generate_song_packet(0,[[255,255,255,60,0,300]],0))
     # print(generate_anouncement_packet(4,[1,1,1,1],0))
@@ -131,3 +131,52 @@ if __name__ == "__main__":
     #     print(msg)
     # for msg in pirates.tracks[1][:20]:
     #     print(msg, msg.type, mido.tick2second(msg.time,pirates.ticks_per_beat,300000))
+    dragon = MidiFile("./dragonborn2.mid",clip=True)
+
+    dragon_notes = []
+    wait_time = 0
+    sequence_number = 0
+    start_index = 0
+    temp= []
+    print(dragon.tracks)
+    for msg in dragon.tracks[3][:20]:
+        print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
+    for index, msg in enumerate(dragon.tracks[3]):
+        if msg.type == "track_name":
+            temp = [0,0,0,0,0,112]
+            # dragon_notes.append([sequence_number,
+            #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
+            #                      0,0,0,
+            #                      91])
+        if msg.type == "note_on":
+            temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+            dragon_notes.append(temp)
+            temp = [len(dragon_notes),0,0,0,0,msg.note]
+        elif msg.type == "note_off":
+            temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+            dragon_notes.append(temp)
+            temp = [len(dragon_notes),0,0,0,0,112]
+            wait_time = 0
+        else:
+            wait_time += int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+        # print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
+    # for msg in dragon_notes:
+    #     print(msg)
+
+    ser.write(generate_anouncement_packet(1,[len(dragon_notes)],0))
+    time.sleep(.1)
+    ser.write(generate_anouncement_packet(1,[len(dragon_notes)],1))
+    time.sleep(.1)
+    for i in range(0,len(dragon_notes),10):
+        ser.write(generate_song_packet(0,dragon_notes[i:i+10],0))
+        time.sleep(.05)
+    # ser.write(generate_song_packet(0,imperial_treble[:8],0))
+    # time.sleep(.1)
+    # ser.write(generate_song_packet(0,imperial_treble[8:16],0))
+    # time.sleep(.1)
+    # ser.write(generate_song_packet(0,imperial_treble[16:],0))
+    time.sleep(1)
+    ser.write(generate_other_control_packet(2,0))
+    time.sleep(100)
+    ser.write(generate_other_control_packet(3,0))
+    ser.write(generate_other_control_packet(4,0))
