@@ -211,6 +211,9 @@ void loop()
       // need to check to see if part matches
       if (*(uint8_t *)(message_buffer + 7) != meta_data.part)
       {
+#ifdef COM
+        Serial.printf("Not my part\n");
+#endif
         break;
       }
 #ifdef COM
@@ -219,10 +222,11 @@ void loop()
       get_song_packets(notes, (uint8_t *)(message_buffer + 3), p_head.num_packets);
       num_populated += p_head.num_packets;
 #ifdef COM
-      for (int i = 0; i < num_populated; i++)
-      {
-        Serial.printf("note: %d, %d %d %d %d %d %d %d\n", i, notes[i]->sequence, notes[i]->duration, notes[i]->part, notes[i]->red, notes[i]->green, notes[i]->blue, notes[i]->note);
-      }
+      Serial.printf("Number populated thus far: %d\n", num_populated);
+      // for (int i = 0; i < num_populated; i++)
+      // {
+      //   Serial.printf("note: %d, %d %d %d %d %d %d %d\n", i, notes[i]->sequence, notes[i]->duration, notes[i]->part, notes[i]->red, notes[i]->green, notes[i]->blue, notes[i]->note);
+      // }
 #endif
       break;
     case 2: // Start playing the song
@@ -298,7 +302,7 @@ void loop()
       }
       new_target_time = target_time + notes[song_index]->duration;
 #ifdef COM
-      Serial.printf("index: %d, new target time: %d, Target_time: %d, current time: %d, duration: %d\n", song_index, new_target_time, target_time, cur_time, notes[song_index]->duration);
+      Serial.printf("index: %d, new target time: %d, Target_time: %d, current time: %d, duration: %d, freq: %d\n", song_index, new_target_time, target_time, cur_time, notes[song_index]->duration, note_pitches[notes[song_index]->note - PITCH_OFFSET]);
 #endif
       target_time = new_target_time;
       play_note_color(song_index, 1);
