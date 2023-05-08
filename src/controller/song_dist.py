@@ -4,7 +4,7 @@ import struct
 # import mido
 import time
 
-ser = serial.Serial('COM11', 115200, timeout=1)
+ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
 
 # if ser is None:
 #     exit(1)
@@ -55,24 +55,65 @@ def generate_other_control_packet(p_type: int, repeat:int) -> bytes:
     return struct.pack("!B",len(packet)) + packet
 
 
-if __name__ == "__main__":
-    ser.write(generate_anouncement_packet(2,[6,6],0))
-    time.sleep(.1)
-    ser.write(generate_anouncement_packet(2,[6,6],1))
-    time.sleep(.1)
-    ser.write(generate_anouncement_packet(2,[6,6],1))
-    time.sleep(.1)
-    for i in range(2):
-        ser.write(generate_song_packet(i,[[0,1000,255,255,255,60],[1,1000,255,0,0,72],
-                                          [2,1000,255,255,255,60],[3,1000,255,255,255,60-12],
-                                          [4,1000,255,0,0,60],[5,1000,255,255,255,60+3]],0))
-        time.sleep(.1)
+imperial_treble = [[0,490,234, 0, 21,69],
+     [1,10,0,0,0,91],
+     [2,490,234, 0, 21,69],
+     [3,10,0,0,0,91],
+     [4,490,234, 0, 21,69],
+     [5,10,0,0,0,91],
+     [6,365,140, 0, 115,65],
+     [7,10,0,0,0,91],
+     [8,115,255, 17, 0,72],
+     [9,10,0,0,0,91],
+     [10,490,234, 0, 21,69],
+     [11,10,0,0,0,91],
+     [12,365,140, 0, 115,65],
+     [13,10,0,0,0,91],
+     [14,115,255, 17, 0,72],
+     [15,10,0,0,0,91],
+     [16,990,234, 0, 21,69],
+     [17,10,0,0,0,91],
+     [18,490,255, 129, 0,76],
+     [19,10,0,0,0,91],
+     [20,490,255, 129, 0,76],
+     [21,10,0,0,0,91],
+     [22,490,255, 129, 0,76],
+     [23,10,0,0,0,91],
+     [24,365,140, 0, 115,65],
+     [25,10,0,0,0,91],
+     [26,115,255, 17, 0,72],
+     [27,10,0,0,0,91],
+     ]
 
+
+if __name__ == "__main__":
+    # ser.write(generate_anouncement_packet(2,[6,6],0))
+    # time.sleep(.1)
+    # ser.write(generate_anouncement_packet(2,[6,6],1))
+    # time.sleep(.1)
+    # ser.write(generate_anouncement_packet(2,[6,6],1))
+    # time.sleep(.1)
+    # for i in range(2):
+    #     ser.write(generate_song_packet(i,[[0,1000,255,255,255,60],[1,1000,255,0,0,72],
+    #                                       [2,1000,255,255,255,60],[3,1000,255,255,255,60-12],
+    #                                       [4,1000,255,0,0,60],[5,1000,255,255,255,60+3]],0))
+    #     time.sleep(.1)
+
+    ser.write(generate_anouncement_packet(1,[28],0))
+    time.sleep(.1)
+    ser.write(generate_anouncement_packet(1,[28],1))
+    time.sleep(.1)
+    ser.write(generate_song_packet(0,imperial_treble[:8],0))
+    time.sleep(.1)
+    ser.write(generate_song_packet(0,imperial_treble[8:16],0))
+    time.sleep(.1)
+    ser.write(generate_song_packet(0,imperial_treble[16:],0))
     time.sleep(1)
     ser.write(generate_other_control_packet(2,0))
-    time.sleep(7)
+    time.sleep(10)
     ser.write(generate_other_control_packet(3,0))
     ser.write(generate_other_control_packet(4,0))
+
     # print(generate_song_packet(0,[[255,255,255,60,0,300]],0))
     # print(generate_anouncement_packet(4,[1,1,1,1],0))
     # ser.write(generate_anncoucement_bytes(1,[1]))
