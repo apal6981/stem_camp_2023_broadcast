@@ -8,7 +8,7 @@
 #define LED_PIN 5
 #define LED_COUNT 20
 
-#define COM
+// #define COM
 
 typedef struct
 {
@@ -194,7 +194,8 @@ void loop()
 #ifdef COM
       Serial.printf("Number of parts being proposed: %d\n", number_of_parts);
 #endif
-      meta_data.part = esp_random() % number_of_parts;
+      // meta_data.part = esp_random() % number_of_parts;
+      meta_data.part = 1;
       meta_data.num_notes = ntohs(*((uint16_t *)(message_buffer + 4 + meta_data.part * 2)));
       notes = (song_note **)malloc(meta_data.num_notes * sizeof(song_note *));
 // notes = ()

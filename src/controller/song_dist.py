@@ -143,7 +143,7 @@ if __name__ == "__main__":
     print(dragon.tracks)
     for msg in dragon.tracks[1][:20]:
         print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
-    for index, msg in enumerate(dragon.tracks[1][:]):
+    for index, msg in enumerate(dragon.tracks[1][:500]):
         if msg.type == "track_name":
             temp = [0,0,0,0,0,112]
             # dragon_notes.append([sequence_number,
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     print(dragon.tracks)
     for msg in dragon.tracks[3][:20]:
         print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
-    for index, msg in enumerate(dragon.tracks[3][:]):
+    for index, msg in enumerate(dragon.tracks[3][:500]):
         if msg.type == "track_name":
             temp = [0,0,0,0,0,112]
             # dragon_notes.append([sequence_number,
