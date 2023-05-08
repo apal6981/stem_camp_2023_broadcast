@@ -133,6 +133,8 @@ if __name__ == "__main__":
     #     print(msg, msg.type, mido.tick2second(msg.time,pirates.ticks_per_beat,300000))
     dragon = MidiFile("./dragonborn2.mid",clip=True)
 
+
+
     dragon_notes = []
     wait_time = 0
     sequence_number = 0
