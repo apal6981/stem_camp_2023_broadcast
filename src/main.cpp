@@ -1,4 +1,5 @@
 #include <Arduino.h>
+// #include <SoftwareSerial.h>
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Adafruit_NeoPixel.h>
@@ -8,7 +9,7 @@
 #define LED_PIN 5
 #define LED_COUNT 20
 
-// #define COM
+#define COM
 
 typedef struct
 {
@@ -195,9 +196,19 @@ void loop()
       Serial.printf("Number of parts being proposed: %d\n", number_of_parts);
 #endif
       // meta_data.part = esp_random() % number_of_parts;
-      meta_data.part = 1;
+      meta_data.part = 3;
       meta_data.num_notes = ntohs(*((uint16_t *)(message_buffer + 4 + meta_data.part * 2)));
       notes = (song_note **)malloc(meta_data.num_notes * sizeof(song_note *));
+      for (int i = 0; i < meta_data.num_notes; i++)  { // init the notes in memory and set default values
+        notes[i] = (song_note *)malloc(sizeof(song_note));
+        notes[i]->sequence = i;
+        notes[i]->part = meta_data.part;
+        notes[i]->red = 0;
+        notes[i]->green = 0;
+        notes[i]->blue = 0;
+        notes[i]->duration = 10;
+        notes[i]->note = 112;
+      }
 // notes = ()
 #ifdef COM
       Serial.printf("Processed announcment: %d, choose %d with %d notes\n", number_of_parts, meta_data.part, meta_data.num_notes);
@@ -352,7 +363,7 @@ void get_song_packets(song_note **packets, uint8_t *data, uint8_t num_packets)
   for (int i = 0; i < num_packets; i++)
   {
     uint16_t seq = ntohs(*((uint16_t *)((data + index))));
-    packets[seq] = (song_note *)malloc(sizeof(song_note));
+    // packets[seq] = (song_note *)malloc(sizeof(song_note));
     packets[seq]->sequence = seq;
     packets[seq]->duration = ntohs(*((uint16_t *)((data + index + 2))));
     packets[seq]->part = data[index + 4];
@@ -408,6 +419,9 @@ void receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataLen)
   message_len = dataLen;
   memcpy(message_buffer, data, dataLen);
   packet_arrival = 1;
+  #ifdef COM
+  Serial.printf("Packet arrived: %d\n",millis());
+  #endif
   // char buffer[ESP_NOW_MAX_DATA_LEN + 1];
   // int msgLen = min(ESP_NOW_MAX_DATA_LEN, dataLen);
   // strncpy(buffer, (const char *)data, msgLen);

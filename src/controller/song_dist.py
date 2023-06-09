@@ -4,7 +4,7 @@ from mido import MidiFile
 import mido
 import time
 
-ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+ser = serial.Serial('COM5', 115200, timeout=1)
 
 # if ser is None:
 #     exit(1)
@@ -22,7 +22,7 @@ def checksum_calc(payload:bytes) -> bytes:
     checksum = 0
     for i in range(0,len(payload),2):
         checksum += struct.unpack("!H",payload[i:i+2])[0]
-    print(checksum,~checksum&0xFFFF)
+    # print(checksum,~checksum&0xFFFF)
     return struct.pack("!H",~checksum&0xFFFF)
 
 def add_header(p_type: int, num_payload: int, repeat: int) -> bytes:
@@ -44,7 +44,7 @@ def generate_anouncement_packet(part: int,part_len: list, repeat: int) -> bytes:
     packet = b""
     packet = add_header(0,1,repeat) + generate_anncoucement_bytes(part, part_len)
     packet = checksum_calc(packet) + packet
-    print(len(packet),packet)
+    # print(len(packet),packet)
     return struct.pack("!B",len(packet)) + packet
     
 def generate_other_control_packet(p_type: int, repeat:int) -> bytes:
@@ -84,6 +84,78 @@ imperial_treble = [[0,490,234, 0, 21,69],
      [26,115,255, 17, 0,72],
      [27,10,0,0,0,91],
      ]
+
+def color_code(start_value, end_value, value):
+    """Returns an RGB color tuple that transitions from blue to green to red."""
+    # Convert the input values to a scale from 0 to 1
+    scaled_value = (value - start_value) / (end_value - start_value)
+    
+    # Calculate the corresponding values for each color channel (red, green, blue)
+    if scaled_value < 0.5:
+        blue_value = max(0, min(255, int(255 * (1 - scaled_value * 2))))
+        green_value = max(0, min(255, int(255 * (scaled_value * 2))))
+        red_value = 0
+    else:
+        blue_value = 0
+        green_value = max(0, min(255, int(255 * (1 - (scaled_value - 0.5) * 2))))
+        red_value = max(0, min(255, int(255 * ((scaled_value - 0.5) * 2))))
+    
+    # Return the RGB color tuple
+    return (red_value, green_value, blue_value)
+
+def parse_midi(midi_name:str) -> list:
+    midi_file = MidiFile(midi_name,clip=True)
+    tempos = []
+    for track in midi_file.tracks:
+        for msg in track:
+            if msg.type == "set_tempo":
+                tempos.append(msg.tempo)
+    # print(tempos)
+    if len(tempos) == 0:
+        tempos.append(500000)
+    tempo = int(sum(tempos) / len(tempos))
+    # print(tempo)
+    # print(midi_file.ticks_per_beat)
+    notes = []
+    min_note = 112
+    max_note = 0
+    for track in midi_file.tracks[:]:
+        beats = []
+        wait_time = 0
+        temp= []
+        for index, msg in enumerate(track):
+            # print(msg)
+            if index == 0:
+                temp = [0,0,0,0,0,112]
+            # dragon_notes.append([sequence_number,
+            #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
+            #                      0,0,0,
+            #                      91])
+            if msg.type == "note_on":
+                temp[1] = wait_time + int(round(mido.tick2second(msg.time,midi_file.ticks_per_beat,tempo),3)*1000)
+                beats.append(temp)
+                temp = [len(beats),0,0,0,0,msg.note]
+                min_note = min(min_note,msg.note)
+                max_note = max(max_note,msg.note)
+            elif msg.type == "note_off":
+                temp[1] = wait_time + int(round(mido.tick2second(msg.time,midi_file.ticks_per_beat,tempo),3)*1000)
+                beats.append(temp)
+                temp = [len(beats),0,0,0,0,112]
+                wait_time = 0
+            else:
+                wait_time += int(round(mido.tick2second(msg.time,midi_file.ticks_per_beat,tempo),3)*1000)
+        if len(beats) < 10:
+            continue
+        notes.append(beats)
+    for track in notes:
+        for beat in track:
+            if beat[-1] != 112:
+                beat[2:5] = color_code(min_note,max_note,beat[-1])
+    # now do colors
+
+    return notes
+    # print(min_note)
+    # print(min_note)
 
 
 if __name__ == "__main__":
@@ -131,85 +203,137 @@ if __name__ == "__main__":
     #     print(msg)
     # for msg in pirates.tracks[1][:20]:
     #     print(msg, msg.type, mido.tick2second(msg.time,pirates.ticks_per_beat,300000))
-    dragon = MidiFile("./dragonborn2.mid",clip=True)
 
 
+    # dragon = MidiFile("./dragonborn2.mid",clip=True)
+    # dragon_notes = []
+    # wait_time = 0
+    # sequence_number = 0
+    # start_index = 0
+    # temp= []
+    # # print(dragon.tracks)
+    # # for msg in dragon.tracks[1][:20]:
+    # #     print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
+    # for index, msg in enumerate(dragon.tracks[1][:]):
+    #     if msg.type == "track_name":
+    #         temp = [0,0,0,0,0,112]
+    #         # dragon_notes.append([sequence_number,
+    #         #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
+    #         #                      0,0,0,
+    #         #                      91])
+    #     if msg.type == "note_on":
+    #         temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #         dragon_notes.append(temp)
+    #         temp = [len(dragon_notes),0,0,0,0,msg.note]
+    #     elif msg.type == "note_off":
+    #         temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #         dragon_notes.append(temp)
+    #         temp = [len(dragon_notes),0,0,0,0,112]
+    #         wait_time = 0
+    #     else:
+    #         wait_time += int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #     # print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
+    # # for msg in dragon_notes:
+    # #     print(msg)
 
-    dragon_notes = []
-    wait_time = 0
-    sequence_number = 0
-    start_index = 0
-    temp= []
-    print(dragon.tracks)
-    for msg in dragon.tracks[1][:20]:
-        print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
-    for index, msg in enumerate(dragon.tracks[1][:500]):
-        if msg.type == "track_name":
-            temp = [0,0,0,0,0,112]
-            # dragon_notes.append([sequence_number,
-            #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
-            #                      0,0,0,
-            #                      91])
-        if msg.type == "note_on":
-            temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
-            dragon_notes.append(temp)
-            temp = [len(dragon_notes),0,0,0,0,msg.note]
-        elif msg.type == "note_off":
-            temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
-            dragon_notes.append(temp)
-            temp = [len(dragon_notes),0,0,0,0,112]
-            wait_time = 0
-        else:
-            wait_time += int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
-        # print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
-    # for msg in dragon_notes:
-    #     print(msg)
+    # dragon_notes_2 = []
+    # wait_time = 0
+    # sequence_number = 0
+    # start_index = 0
+    # temp= []
+    # # print(dragon.tracks)
+    # # for msg in dragon.tracks[2][:20]:
+    # #     print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
+    # for index, msg in enumerate(dragon.tracks[2][:]):
+    #     if msg.type == "track_name":
+    #         temp = [0,0,0,0,0,112]
+    #         # dragon_notes.append([sequence_number,
+    #         #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
+    #         #                      0,0,0,
+    #         #                      91])
+    #     if msg.type == "note_on":
+    #         temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #         dragon_notes_2.append(temp)
+    #         temp = [len(dragon_notes_2),0,0,0,0,msg.note]
+    #     elif msg.type == "note_off":
+    #         temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #         dragon_notes_2.append(temp)
+    #         temp = [len(dragon_notes_2),0,0,0,0,112]
+    #         wait_time = 0
+    #     else:
+    #         wait_time += int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
 
-    dragon_notes_2 = []
-    wait_time = 0
-    sequence_number = 0
-    start_index = 0
-    temp= []
-    print(dragon.tracks)
-    for msg in dragon.tracks[3][:20]:
-        print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
-    for index, msg in enumerate(dragon.tracks[3][:500]):
-        if msg.type == "track_name":
-            temp = [0,0,0,0,0,112]
-            # dragon_notes.append([sequence_number,
-            #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
-            #                      0,0,0,
-            #                      91])
-        if msg.type == "note_on":
-            temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
-            dragon_notes_2.append(temp)
-            temp = [len(dragon_notes_2),0,0,0,0,msg.note]
-        elif msg.type == "note_off":
-            temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
-            dragon_notes_2.append(temp)
-            temp = [len(dragon_notes_2),0,0,0,0,112]
-            wait_time = 0
-        else:
-            wait_time += int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
 
-    ser.write(generate_anouncement_packet(2,[len(dragon_notes),len(dragon_notes_2)],0))
-    time.sleep(.1)
-    ser.write(generate_anouncement_packet(2,[len(dragon_notes),len(dragon_notes_2)],1))
-    time.sleep(.1)
-    for i in range(0,len(dragon_notes),10):
-        ser.write(generate_song_packet(0,dragon_notes[i:i+10],0))
-        time.sleep(.1)
-    print("sending second part")
-    for i in range(0,len(dragon_notes_2),10):
-        ser.write(generate_song_packet(1,dragon_notes_2[i:i+10],0))
-        time.sleep(.1)
+    # dragon_notes_3 = []
+    # wait_time = 0
+    # sequence_number = 0
+    # start_index = 0
+    # temp= []
+    # # print(dragon.tracks)
+    # # for msg in dragon.tracks[3][:20]:
+    # #     print(msg, msg.type, mido.tick2second(msg.time,dragon.ticks_per_beat,600000))
+    # for index, msg in enumerate(dragon.tracks[3][:]):
+    #     if msg.type == "track_name":
+    #         temp = [0,0,0,0,0,112]
+    #         # dragon_notes.append([sequence_number,
+    #         #                      int(round(mido.tick2second(dragon.tracks[3][index+1].time,dragon.ticks_per_beat,600000),3)*1000),
+    #         #                      0,0,0,
+    #         #                      91])
+    #     if msg.type == "note_on":
+    #         temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #         dragon_notes_3.append(temp)
+    #         temp = [len(dragon_notes_3),0,0,0,0,msg.note]
+    #     elif msg.type == "note_off":
+    #         temp[1] = wait_time + int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+    #         dragon_notes_3.append(temp)
+    #         temp = [len(dragon_notes_3),0,0,0,0,112]
+    #         wait_time = 0
+    #     else:
+    #         wait_time += int(round(mido.tick2second(msg.time,dragon.ticks_per_beat,600000),3)*1000)
+
+    # ser.write(generate_anouncement_packet(3,[len(dragon_notes),len(dragon_notes_2),len(dragon_notes_3)],0))
+    # time.sleep(.1)
+    # ser.write(generate_anouncement_packet(3,[len(dragon_notes),len(dragon_notes_2),len(dragon_notes_3)],1))
+    # time.sleep(.1)
+    # for i in range(0,len(dragon_notes),15):
+    #     ser.write(generate_song_packet(0,dragon_notes[i:i+15],0))
+    #     time.sleep(.2)
+    # print("sending second part")
+    # for i in range(0,len(dragon_notes_2),15):
+    #     ser.write(generate_song_packet(1,dragon_notes_2[i:i+15],0))
+    #     time.sleep(.2)
+    # print("sending third part")
+    # for i in range(0,len(dragon_notes_3),15):
+    #     ser.write(generate_song_packet(2,dragon_notes_3[i:i+15],0))
+    #     time.sleep(.2)
 
     # ser.write(generate_song_packet(0,imperial_treble[:8],0))
     # time.sleep(.1)
     # ser.write(generate_song_packet(0,imperial_treble[8:16],0))
     # time.sleep(.1)
     # ser.write(generate_song_packet(0,imperial_treble[16:],0))
-    time.sleep(3)
+    # time.sleep(20)
+    # ser.write(generate_other_control_packet(2,0))
+    # time.sleep(200)
+    # ser.write(generate_other_control_packet(3,0))
+    # ser.write(generate_other_control_packet(4,0))
+
+
+    parts = parse_midi("./dragonborn2.mid")
+    print(len(parts))
+
+    ser.write(generate_anouncement_packet(len(parts),[len(x) for x in parts],0))
+    time.sleep(.1)
+    ser.write(generate_anouncement_packet(len(parts),[len(x) for x in parts],1))
+    time.sleep(.1)
+    for part_num, part in enumerate(parts):
+        for i in range(0, len(part),15):
+            print("Part",part_num,"packets:",i,"-",i+15,"of",len(part))
+            ser.write(generate_song_packet(part_num,part[i:i+15],0))
+            time.sleep(.2)
+    print("Getting ready to start")
+    time.sleep(20)
+    print("Starting")
     ser.write(generate_other_control_packet(2,0))
     time.sleep(200)
     ser.write(generate_other_control_packet(3,0))
